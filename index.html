@@ -1,110 +1,76 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>포트폴리오</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 아이콘 모음: 아래에서 <use href="#아이콘이름">으로 불러 쓴다 -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-user" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5Z"/></symbol>
-    <symbol id="i-mail" viewBox="0 0 24 24"><path fill="currentColor" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm9 7.2L4.4 7H4v.6l8 5.4 8-5.4V7h-.4L12 12.2Z"/></symbol>
-    <symbol id="i-phone" viewBox="0 0 24 24"><path fill="currentColor" d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1L6.6 10.8Z"/></symbol>
-    <symbol id="i-pin" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/></symbol>
-    <symbol id="i-cap" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3 1 9l11 6 9-4.9V17h2V9L12 3Zm-6.8 10.2V17c0 1.7 3 4 6.8 4s6.8-2.3 6.8-4v-3.8L12 17l-6.8-3.8Z"/></symbol>
-    <symbol id="i-tools" viewBox="0 0 24 24"><path fill="currentColor" d="M22.7 19 13.6 9.9a6.4 6.4 0 0 0-1.5-6.9A6.6 6.6 0 0 0 4.7 1.7L9 6 6 9 1.6 4.7A6.6 6.6 0 0 0 3 12.1a6.4 6.4 0 0 0 6.9 1.5l9.1 9.1a1 1 0 0 0 1.4 0l2.3-2.3a1 1 0 0 0 0-1.4Z"/></symbol>
-    <symbol id="i-case" viewBox="0 0 24 24"><path fill="currentColor" d="M10 3h4a2 2 0 0 1 2 2v1h4a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h4V5a2 2 0 0 1 2-2Zm0 3h4V5h-4v1ZM2 14h8v1a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-1h8v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/></symbol>
-    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.4-9.3C1.3 7.9 3.4 4.5 6.9 4.5c2 0 3.5 1.1 5.1 3 1.6-1.9 3.1-3 5.1-3 3.5 0 5.6 3.4 4.3 6.7-1.9 4.7-9.4 9.3-9.4 9.3Z"/></symbol>
-  </svg>
+  <div class="page">
 
-  <main class="page">
-    <div class="sheet">
-      <!-- 왼쪽: ABOUT ME -->
-      <aside class="about">
-        <h2 class="label">ABOUT ME</h2>
-        <div class="photo" id="photo">
-          <svg class="photo-empty" aria-hidden="true"><use href="#i-user"/></svg>
-        </div>
-        <p class="name" id="name">불러오는 중…</p>
-        <p class="job" id="title"></p>
-        <p class="badge" id="career-badge" hidden></p>
-
-        <ul class="contact">
-          <li>
-            <span class="dot"><svg><use href="#i-user"/></svg></span>
-            <span><small>이름</small><span id="c-name"></span></span>
-          </li>
-          <li>
-            <span class="dot"><svg><use href="#i-mail"/></svg></span>
-            <span><small>이메일</small><a id="c-email"></a></span>
-          </li>
-          <li>
-            <span class="dot"><svg><use href="#i-phone"/></svg></span>
-            <span><small>연락처</small><a id="c-phone"></a></span>
-          </li>
-          <li>
-            <span class="dot"><svg><use href="#i-pin"/></svg></span>
-            <span><small>위치</small><span id="c-location"></span></span>
-          </li>
-        </ul>
+    <section class="card main-card">
+      <aside class="about" id="about">
+        <p class="about-label">ABOUT ME</p>
+        <div class="photo" id="photo"></div>
+        <h2 class="name" id="name"></h2>
+        <p class="title" id="title"></p>
+        <p class="badge-wrap"><span class="badge" id="badge"></span></p>
+        <ul class="contacts" id="contacts"></ul>
       </aside>
 
-      <!-- 오른쪽: PORTFOLIO -->
-      <section class="content">
-        <h1 class="big-title">PORTFOLIO</h1>
+      <main class="portfolio">
+        <h1 class="page-title"><span class="bar"></span>PORTFOLIO</h1>
         <p class="headline" id="headline"></p>
         <p class="intro" id="intro"></p>
+        <hr class="divider">
 
-        <div class="facts">
-          <div class="fact">
-            <h3><svg><use href="#i-cap"/></svg>EDUCATION</h3>
-            <p id="education"></p>
-          </div>
-          <div class="fact">
-            <h3><svg><use href="#i-tools"/></svg>SKILLS &amp; TOOLS</h3>
-            <p id="skills"></p>
-          </div>
-          <div class="fact">
-            <h3><svg><use href="#i-case"/></svg>EXPERIENCE</h3>
-            <p id="experience"></p>
-          </div>
+        <div class="info-grid">
+          <section>
+            <h3 class="info-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 1 9l11 6 9-4.9V17h2V9L12 3zm-6 9.2v4L12 20l6-3.8v-4L12 15.5 6 12.2z"/></svg>EDUCATION</h3>
+            <div class="info-body" id="education"></div>
+          </section>
+          <section>
+            <h3 class="info-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.7 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2z"/></svg>SKILLS &amp; TOOLS</h3>
+            <div class="info-body" id="skills"></div>
+          </section>
+          <section>
+            <h3 class="info-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4a2 2 0 0 1 2 2v1h4a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h4V5a2 2 0 0 1 2-2zm0 2v1h4V5h-4zM2 14h8v2h4v-2h8v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5z"/></svg>EXPERIENCE</h3>
+            <div class="info-body" id="experience"></div>
+          </section>
         </div>
 
-        <div class="highlights">
-          <h2 class="label">PORTFOLIO HIGHLIGHTS</h2>
-          <div class="cards" id="cards">
-            <p class="empty">불러오는 중…</p>
+        <section class="highlights">
+          <div class="highlights-head">
+            <h3>PORTFOLIO HIGHLIGHTS</h3>
+            <span class="hint">(카드를 터치하면 상세 기획서를 보실 수 있습니다)</span>
           </div>
-        </div>
+          <div class="project-grid" id="projects"><p class="status">불러오는 중…</p></div>
+        </section>
 
-        <blockquote class="quote" id="quote" hidden></blockquote>
-      </section>
-    </div>
-
-    <!-- 방명록 -->
-    <section class="sheet guestbook">
-      <h2 class="big-title small">GUESTBOOK</h2>
-      <p class="intro">별명과 한마디를 남겨 주세요.</p>
-
-      <div class="gb-form">
-        <input id="gb-nickname" type="text" maxlength="20" placeholder="별명 (20자까지)" autocomplete="nickname">
-        <textarea id="gb-message" maxlength="200" rows="3" placeholder="한마디 (200자까지)"></textarea>
-        <div class="gb-actions">
-          <span class="gb-status" id="gb-status" role="status"></span>
-          <button type="button" class="btn" id="gb-submit">남기기</button>
-        </div>
-      </div>
-
-      <ul class="gb-list" id="gb-list">
-        <li class="empty">불러오는 중…</li>
-      </ul>
+        <p class="quote" id="quote"></p>
+      </main>
     </section>
 
-    <footer class="site-foot"><a href="admin.html">관리자</a></footer>
-  </main>
+    <section class="card guestbook">
+      <div class="guestbook-inner">
+        <h2 class="guestbook-title"><span class="bar"></span>GUESTBOOK</h2>
+        <p class="guestbook-sub">방문해 주셔서 감사합니다. 별명과 한마디를 남겨 주세요.</p>
 
+        <div class="guest-form">
+          <input type="text" id="gb-nickname" maxlength="20" placeholder="별명 (20자까지)" aria-label="별명">
+          <input type="text" id="gb-message" maxlength="200" placeholder="한마디 (200자까지)" aria-label="한마디">
+          <button type="button" id="gb-submit" class="primary-btn">남기기</button>
+        </div>
+        <p class="form-msg" id="gb-msg" role="status"></p>
+
+        <ul class="guest-list" id="gb-list"></ul>
+      </div>
+    </section>
+
+    <p class="admin-link"><a href="admin.html">관리자</a></p>
+
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
