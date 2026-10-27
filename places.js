@@ -4,5 +4,6 @@
 const PLACES = [
   { id: "haeundae", name: "해운대해수욕장", lat: 35.1587, lng: 129.1604 },
   { id: "gwangalli", name: "광안리해수욕장", lat: 35.1532, lng: 129.1186 },
-  { id: "gamcheon", name: "감천문화마을", lat: 35.0975, lng: 129.0106 }
+  { id: "gamcheon", name: "감천문화마을", lat: 35.0975, lng: 129.0106 },
+  { id: "gimhae-airport", name: "김해국제공항", lat: 35.1795, lng: 128.9382 }
 ];

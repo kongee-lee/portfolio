@@ -10,19 +10,48 @@
 <body>
   <header class="top">
     <h1>부산 명소 지도</h1>
-    <p>핀을 누르면 장소 이름과 위도·경도가 보여요.</p>
+    <p>핀을 누르면 장소 이름과 위도·경도가 보여요. 지도를 누르면 그 위치를 나만의 명소로 등록할 수 있어요.</p>
   </header>
 
-  <main class="map-wrap">
-    <div id="map" aria-label="부산 지도"></div>
+  <main class="layout">
+    <section class="map-wrap">
+      <div id="map" aria-label="부산 지도"></div>
+    </section>
+
+    <aside class="panel">
+      <section class="card" id="form-card">
+        <h2 id="form-title">새 명소 등록</h2>
+        <p class="hint">① 이름을 쓰고 ② 지도에서 위치를 누른 뒤 ③ 저장을 누르세요.</p>
+
+        <label class="label" for="place-name">장소 이름</label>
+        <input id="place-name" type="text" maxlength="30" placeholder="예: 태종대" autocomplete="off">
+
+        <p class="label">위치</p>
+        <p id="picked-coord" class="coord-box">아직 고르지 않았어요. 지도를 눌러 주세요.</p>
+
+        <p id="form-message" class="message" role="status"></p>
+
+        <div class="buttons">
+          <button type="button" id="save-btn" class="btn primary">저장</button>
+          <button type="button" id="cancel-btn" class="btn">취소</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>나만의 명소 <span id="my-count">0</span>곳</h2>
+        <p id="empty-text" class="hint">아직 등록한 명소가 없어요.</p>
+        <ul id="my-list" class="place-list"></ul>
+      </section>
+    </aside>
   </main>
 
   <footer class="bottom">
-    <p>등록된 명소 <strong id="place-count">0</strong>곳 · 지도: OpenStreetMap</p>
+    <p>지도에 표시된 명소 <strong id="place-count">0</strong>곳 · 지도: OpenStreetMap</p>
   </footer>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="places.js"></script>
+  <script src="storage.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
