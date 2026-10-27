@@ -1,552 +1,617 @@
-// ===== Supabase 연결 정보 (공개 키만 쓴다) =====
-const SUPABASE_URL = 'https://pxzqoiyolpztslbbxnpz.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_D5L0A7KPIukhUNzWIoEWIA_BcCPeoV-';
-const BUCKET = 'resume';
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
-const FILE_TYPES = { ...IMAGE_TYPES, 'application/pdf': 'pdf' };
-const SESSION_KEY = 'resume_admin_session';
+// Supabase 주소와 공개 키 (공개 키라서 화면 파일에 넣어도 된다)
+var SUPABASE_URL = 'https://pxzqoiyolpztslbbxnpz.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_D5L0A7KPIukhUNzWIoEWIA_BcCPeoV-';
 
-const $ = (id) => document.getElementById(id);
+var MAX_BYTES = 10 * 1024 * 1024;
+var EXT_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'application/pdf': 'pdf'
+};
 
-function showMsg(id, text, kind) {
-  const el = $(id);
-  el.textContent = text || '';
-  el.className = 'msg' + (kind ? ' ' + kind : '');
+var PROFILE_FIELDS = [
+  ['name', '이름', 'text'],
+  ['title', '직함', 'text'],
+  ['career_badge', '경력 배지', 'text'],
+  ['email', '이메일', 'text'],
+  ['phone', '연락처', 'text'],
+  ['location', '위치', 'text'],
+  ['headline', '한 줄 소개 제목 (마지막 쉼표 뒤부터 이름까지가 파란 밑줄)', 'area'],
+  ['intro', '소개 글', 'area'],
+  ['education', 'EDUCATION (줄마다 한 줄, 첫 줄은 굵게)', 'area'],
+  ['skills', 'SKILLS & TOOLS (쉼표나 줄바꿈으로 나누기)', 'area'],
+  ['experience', 'EXPERIENCE (줄마다 한 줄, 첫 줄은 굵게)', 'area'],
+  ['quote', '맨 아래 인용 문장', 'area']
+];
+
+var session = null;
+var profileInputs = {};
+var profileHasRow = true;
+var currentPhotoUrl = null;
+var projects = [];
+var likeCounts = {};
+var editingId = null;
+var projectInputs = {};
+
+// ---------- 도우미 ----------
+function $(id) { return document.getElementById(id); }
+
+function el(tag, className, text) {
+  var node = document.createElement(tag);
+  if (className) { node.className = className; }
+  if (text !== undefined && text !== null) { node.textContent = text; }
+  return node;
 }
 
-// ===== 로그인 정보 (브라우저에 저장) =====
-let session = null; // { access_token, refresh_token, expires_at, user }
-
-function loadSession() {
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { return null; }
-}
-function saveSession(data) {
-  session = data
-    ? { ...data, expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600) }
-    : null;
-  try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch (e) { /* 저장 못 해도 이번 화면에서는 동작 */ }
-}
-
-async function authRequest(path, body) {
-  const res = await fetch(SUPABASE_URL + '/auth/v1/' + path, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const error = new Error(data.error_description || data.msg || data.message || '로그인 실패');
-    error.status = res.status;
-    throw error;
-  }
-  return data;
-}
-
-// 토큰이 곧 끝나면 새 토큰으로 바꾼다
-async function freshToken() {
-  if (!session) throw new Error('로그인이 필요합니다');
-  if (session.expires_at - 60 < Date.now() / 1000) {
-    try {
-      saveSession(await authRequest('token?grant_type=refresh_token', { refresh_token: session.refresh_token }));
-    } catch (e) {
-      saveSession(null);
-      showView('login');
-      throw new Error('로그인이 끝났습니다. 다시 로그인해 주세요.');
-    }
-  }
-  return session.access_token;
-}
-
-// 로그인한 토큰으로 Supabase에 요청한다
-async function request(url, options = {}) {
-  const token = await freshToken();
-  const res = await fetch(url, {
-    ...options,
-    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token, ...options.headers },
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || data.error || '요청 실패 (' + res.status + ')');
-  }
-  return res;
-}
-
-function db(path, options = {}) {
-  return request(SUPABASE_URL + '/rest/v1/' + path, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-  });
-}
-async function dbJson(path, options) {
-  return (await db(path, options)).json();
-}
-
-// 고치거나 지운 줄을 돌려받아, 0줄이면 권한이 없던 것으로 본다
-async function dbChange(path, method, body, prefer) {
-  const rows = await dbJson(path, {
-    method,
-    headers: { Prefer: 'return=representation' + (prefer ? ',' + prefer : '') },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!rows.length) throw new Error('바뀐 것이 없습니다. 관리자 권한을 확인해 주세요.');
-  return rows;
-}
-
-async function countLikes(projectId) {
-  const res = await db('likes?select=id&project_id=eq.' + projectId, {
-    method: 'HEAD',
-    headers: { Prefer: 'count=exact' },
-  });
-  return Number((res.headers.get('content-range') || '').split('/')[1]) || 0;
-}
-
-// ===== 파일 올리기 =====
-// 문제가 있으면 안내 문구를, 괜찮으면 null을 돌려준다
-function checkFile(file, types) {
-  if (!file) return null;
-  if (!types[file.type]) {
-    return types === IMAGE_TYPES
-      ? '이미지 파일(PNG·JPG·WEBP·GIF)만 올릴 수 있어요.'
-      : '이미지 또는 PDF 파일만 올릴 수 있어요.';
-  }
-  if (file.size > MAX_SIZE) return '10MB보다 큰 파일은 올릴 수 없어요. (지금 ' + (file.size / 1024 / 1024).toFixed(1) + 'MB)';
-  return null;
-}
-
-// 파일 이름은 영어·숫자로 새로 짓는다. 예: projects/20261027-0315-k3j9x2.pdf
-function newFileName(folder, file) {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const stamp = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
-  const random = Math.random().toString(36).slice(2, 8);
-  return folder + '/' + stamp + '-' + random + '.' + FILE_TYPES[file.type];
-}
-
-async function uploadFile(folder, file) {
-  const path = newFileName(folder, file);
-  await request(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + path, {
-    method: 'POST',
-    headers: { 'Content-Type': file.type, 'x-upsert': 'false' },
-    body: file,
-  });
-  return SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + path;
-}
-
-function setPreview(box, url) {
-  box.textContent = '';
-  if (!url) {
-    box.textContent = '없음';
-    return;
-  }
-  const img = document.createElement('img');
-  img.src = url;
-  img.alt = '';
-  box.append(img);
-}
-
-function previewChosen(input, box, fallbackUrl) {
-  const file = input.files[0];
-  if (file && IMAGE_TYPES[file.type]) setPreview(box, URL.createObjectURL(file));
-  else setPreview(box, fallbackUrl);
-}
-
-// ===== 화면 전환 =====
-function showView(name) {
-  $('login-view').hidden = name !== 'login';
-  $('denied-view').hidden = name !== 'denied';
-  $('admin-view').hidden = name !== 'admin';
-}
-
-async function enter() {
-  try {
-    await freshToken();
-    const rows = await dbJson('admins?select=user_id&user_id=eq.' + session.user.id);
-    if (!rows.length) {
-      $('denied-email').textContent = session.user.email + ' 계정은 관리자로 등록되어 있지 않아요.';
-      showView('denied');
-      return;
-    }
-    $('me').textContent = session.user.email;
-    showView('admin');
-    loadProfile();
-    loadProjects();
-    loadGuestbook();
-  } catch (e) {
-    showView('login');
-    showMsg('login-msg', e.message, 'error');
-  }
-}
-
-async function login() {
-  const email = $('login-email').value.trim();
-  const password = $('login-password').value;
-  if (!email || !password) return showMsg('login-msg', '이메일과 비밀번호를 적어 주세요.', 'error');
-  $('login-btn').disabled = true;
-  showMsg('login-msg', '로그인 중…');
-  try {
-    saveSession(await authRequest('token?grant_type=password', { email, password }));
-    $('login-password').value = '';
-    showMsg('login-msg', '');
-    await enter();
-  } catch (e) {
-    showMsg('login-msg', e.status === 400 ? '이메일 또는 비밀번호가 맞지 않아요.' : e.message, 'error');
-  }
-  $('login-btn').disabled = false;
-}
-
-async function logout() {
-  if (session) {
-    fetch(SUPABASE_URL + '/auth/v1/logout', {
-      method: 'POST',
-      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + session.access_token },
-    }).catch(() => {});
-  }
-  saveSession(null);
-  showView('login');
-}
-
-$('login-btn').addEventListener('click', login);
-$('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
-document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
-
-// ===== 프로필 =====
-let profilePhotoUrl = null;
-
-async function loadProfile() {
-  try {
-    const rows = await dbJson('profile?select=*&id=eq.1');
-    const p = rows[0] || {};
-    document.querySelectorAll('[data-p]').forEach((el) => { el.value = p[el.dataset.p] || ''; });
-    profilePhotoUrl = p.photo_url || null;
-    setPreview($('photo-preview'), profilePhotoUrl);
-  } catch (e) {
-    showMsg('profile-msg', '프로필을 불러오지 못했습니다: ' + e.message, 'error');
-  }
-}
-
-$('photo-file').addEventListener('change', () => {
-  const problem = checkFile($('photo-file').files[0], IMAGE_TYPES);
-  if (problem) {
-    $('photo-file').value = '';
-    showMsg('profile-msg', problem, 'error');
-  } else {
-    showMsg('profile-msg', '');
-  }
-  previewChosen($('photo-file'), $('photo-preview'), profilePhotoUrl);
-});
-
-$('profile-save').addEventListener('click', async () => {
-  const saveButton = $('profile-save');
-  saveButton.disabled = true;
-  showMsg('profile-msg', '저장 중…');
-  try {
-    const data = { id: 1, updated_at: new Date().toISOString() };
-    document.querySelectorAll('[data-p]').forEach((el) => { data[el.dataset.p] = el.value.trim(); });
-
-    const file = $('photo-file').files[0];
-    if (file) data.photo_url = await uploadFile('profile', file);
-
-    // 프로필 줄이 있으면 고치고, 없으면 새로 만든다
-    await dbChange('profile?on_conflict=id', 'POST', data, 'resolution=merge-duplicates');
-    profilePhotoUrl = data.photo_url || profilePhotoUrl;
-    $('photo-file').value = '';
-    setPreview($('photo-preview'), profilePhotoUrl);
-    showMsg('profile-msg', '저장했습니다. 방문자 화면을 새로고침하면 보입니다.', 'ok');
-  } catch (e) {
-    showMsg('profile-msg', '저장하지 못했습니다: ' + e.message, 'error');
-  }
-  saveButton.disabled = false;
-});
-
-// ===== 포트폴리오 카드 + 좋아요 =====
-let projects = [];
-let likeCounts = {};
-
-async function loadProjects() {
-  try {
-    projects = await dbJson('projects?select=*&order=sort_order.asc,id.asc');
-    const counts = await Promise.all(projects.map((p) => countLikes(p.id).catch(() => 0)));
-    likeCounts = {};
-    projects.forEach((p, i) => { likeCounts[p.id] = counts[i]; });
-    renderProjects();
-    renderLikes();
-  } catch (e) {
-    showMsg('project-msg', '카드를 불러오지 못했습니다: ' + e.message, 'error');
-  }
-}
-
-function button(text, onClick, extraClass) {
-  const b = document.createElement('button');
+function button(label, className, onClick) {
+  var b = el('button', className, label);
   b.type = 'button';
-  b.className = 'btn-line' + (extraClass ? ' ' + extraClass : '');
-  b.textContent = text;
   b.addEventListener('click', onClick);
   return b;
 }
 
-function likesPill(count) {
-  const pill = document.createElement('span');
-  pill.className = 'likes-pill';
-  pill.textContent = '♥ ' + count;
-  return pill;
+function show(id, visible) { $(id).hidden = !visible; }
+
+function setMsg(node, text, ok) {
+  node.textContent = text || '';
+  node.classList.toggle('ok', !!ok);
 }
 
-function renderProjects() {
-  const list = $('project-list');
-  list.textContent = '';
-  if (!projects.length) {
-    list.innerHTML = '<li class="empty">카드가 없습니다. 아래에서 추가해 주세요.</li>';
-    return;
-  }
-  projects.forEach((p, i) => {
-    const li = document.createElement('li');
-    li.className = 'item';
+function isWebUrl(url) { return typeof url === 'string' && /^https?:\/\//i.test(url); }
 
-    const thumb = document.createElement('div');
-    thumb.className = 'preview';
-    setPreview(thumb, p.thumbnail_url);
+function formatDate(iso) {
+  var d = new Date(iso);
+  if (isNaN(d)) { return ''; }
+  var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+  return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
 
-    const main = document.createElement('div');
-    main.className = 'item-main';
-    const meta = document.createElement('p');
-    meta.className = 'card-meta';
-    meta.textContent = [p.number, p.category].filter(Boolean).join(' · ');
-    const title = document.createElement('strong');
-    title.textContent = p.title;
-    const extra = document.createElement('p');
-    extra.textContent = (p.tags || []).join(', ') + (p.file_url ? '  · 첨부 있음' : '');
-    main.append(meta, title, extra);
+function publicUrl(path) {
+  return SUPABASE_URL + '/storage/v1/object/public/resume/' + path;
+}
 
-    const actions = document.createElement('div');
-    actions.className = 'row-actions';
-    const up = button('▲', () => moveProject(i, -1));
-    up.title = '위로';
-    up.disabled = i === 0;
-    const down = button('▼', () => moveProject(i, 1));
-    down.title = '아래로';
-    down.disabled = i === projects.length - 1;
-    actions.append(up, down, button('수정', () => openEditor(p)), button('삭제', () => deleteProject(p), 'danger'));
+// ---------- 로그인 정보 ----------
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem('resume_admin_session') || 'null'); } catch (e) { return null; }
+}
+function saveSession(s) {
+  session = s;
+  try {
+    if (s) { localStorage.setItem('resume_admin_session', JSON.stringify(s)); }
+    else { localStorage.removeItem('resume_admin_session'); }
+  } catch (e) { /* 저장 못 해도 이번 방문 동안은 동작 */ }
+}
 
-    li.append(thumb, main, likesPill(likeCounts[p.id] || 0), actions);
-    list.append(li);
+function authRequest(path, bodyObj, token) {
+  var headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
+  if (token) { headers.Authorization = 'Bearer ' + token; }
+  return fetch(SUPABASE_URL + '/auth/v1/' + path, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(bodyObj || {})
   });
 }
 
-function renderLikes() {
-  const list = $('like-list');
-  list.textContent = '';
-  if (!projects.length) {
-    list.innerHTML = '<li class="empty">카드가 없습니다.</li>';
-    return;
-  }
-  projects.forEach((p) => {
-    const li = document.createElement('li');
-    li.className = 'item';
-    const main = document.createElement('div');
-    main.className = 'item-main';
-    const title = document.createElement('strong');
-    title.textContent = [p.number, p.title].filter(Boolean).join('. ');
-    main.append(title);
-    const reset = button('좋아요 초기화', () => resetLikes(p), 'danger');
-    reset.disabled = !likeCounts[p.id];
-    li.append(main, likesPill(likeCounts[p.id] || 0), reset);
-    list.append(li);
+function storeTokenResponse(data) {
+  saveSession({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + (data.expires_in || 3600) * 1000,
+    email: (data.user && data.user.email) || (session && session.email) || ''
   });
 }
 
-// 순서 바꾸기: 바뀐 순서대로 sort_order를 1, 2, 3… 으로 다시 매긴다
-async function moveProject(index, step) {
-  const target = index + step;
-  if (target < 0 || target >= projects.length) return;
-  const order = projects.slice();
-  [order[index], order[target]] = [order[target], order[index]];
-  showMsg('project-msg', '순서 바꾸는 중…');
-  try {
-    for (let i = 0; i < order.length; i++) {
-      if (order[i].sort_order !== i + 1) {
-        await dbChange('projects?id=eq.' + order[i].id, 'PATCH', { sort_order: i + 1 });
-      }
+function refreshSession() {
+  if (!session || !session.refresh_token) { return Promise.reject(new Error('auth')); }
+  return authRequest('token?grant_type=refresh_token', { refresh_token: session.refresh_token })
+    .then(function (res) {
+      if (!res.ok) { throw new Error('auth'); }
+      return res.json();
+    })
+    .then(storeTokenResponse);
+}
+
+function ensureFresh() {
+  if (session && session.expires_at - Date.now() < 60000) { return refreshSession(); }
+  return Promise.resolve();
+}
+
+// 로그인한 토큰을 붙여서 요청한다. 토큰이 만료돼 401이 오면 한 번 갱신해서 다시 시도한다.
+function call(url, options, retried) {
+  return ensureFresh().then(function () {
+    var headers = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + session.access_token };
+    for (var k in options.headers) { headers[k] = options.headers[k]; }
+    return fetch(url, { method: options.method || 'GET', headers: headers, body: options.body });
+  }).then(function (res) {
+    if (res.status === 401 && !retried) {
+      return refreshSession().then(function () { return call(url, options, true); });
     }
-    showMsg('project-msg', '');
-  } catch (e) {
-    showMsg('project-msg', '순서를 바꾸지 못했습니다: ' + e.message, 'error');
+    return res;
+  });
+}
+
+function api(path, options) {
+  options = options || {};
+  var headers = { 'Content-Type': 'application/json' };
+  for (var k in options.headers) { headers[k] = options.headers[k]; }
+  return call(SUPABASE_URL + '/rest/v1/' + path, { method: options.method, headers: headers, body: options.body })
+    .then(function (res) {
+      if (!res.ok) { throw new Error('요청 실패 ' + res.status); }
+      return res.status === 204 || res.headers.get('content-length') === '0' ? null : res.text().then(function (t) { return t ? JSON.parse(t) : null; });
+    });
+}
+
+// ---------- 파일 올리기 ----------
+function checkFile(file, allowPdf) {
+  var okTypes = allowPdf
+    ? ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+    : ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (okTypes.indexOf(file.type) === -1) {
+    return allowPdf
+      ? '이미지(png, jpg, webp, gif)나 PDF만 올릴 수 있어요.'
+      : '이미지(png, jpg, webp, gif)만 올릴 수 있어요.';
   }
-  loadProjects();
+  if (file.size > MAX_BYTES) { return '파일이 10MB보다 커요. 더 작은 파일을 골라 주세요.'; }
+  return '';
 }
 
-async function deleteProject(p) {
-  if (!confirm('"' + p.title + '" 카드를 지울까요? 이 카드의 좋아요도 함께 지워집니다.')) return;
-  try {
-    await dbChange('projects?id=eq.' + p.id, 'DELETE');
-    if (editing && editing.id === p.id) closeEditor();
-    showMsg('project-msg', '지웠습니다.', 'ok');
-  } catch (e) {
-    showMsg('project-msg', '지우지 못했습니다: ' + e.message, 'error');
-  }
-  loadProjects();
+// 파일 이름은 영어·숫자로 새로 짓는다
+function uploadFile(file, folder, kind) {
+  var path = folder + '/' + kind + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + EXT_BY_TYPE[file.type];
+  return call(SUPABASE_URL + '/storage/v1/object/resume/' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': file.type },
+    body: file
+  }).then(function (res) {
+    if (!res.ok) { throw new Error('올리기 실패'); }
+    return publicUrl(path);
+  });
 }
 
-async function resetLikes(p) {
-  if (!confirm('"' + p.title + '" 카드의 좋아요 ' + (likeCounts[p.id] || 0) + '개를 모두 지울까요?')) return;
-  try {
-    await dbChange('likes?project_id=eq.' + p.id, 'DELETE');
-    showMsg('like-msg', '초기화했습니다.', 'ok');
-  } catch (e) {
-    showMsg('like-msg', '초기화하지 못했습니다: ' + e.message, 'error');
-  }
-  loadProjects();
+// ---------- 로그인·로그아웃 ----------
+function doLogin() {
+  var email = $('login-email').value.trim();
+  var password = $('login-password').value;
+  var msg = $('login-msg');
+  setMsg(msg, '');
+  if (!email || !password) { setMsg(msg, '이메일과 비밀번호를 입력해 주세요.'); return; }
+  $('login-btn').disabled = true;
+  authRequest('token?grant_type=password', { email: email, password: password })
+    .then(function (res) {
+      if (!res.ok) { throw new Error('login'); }
+      return res.json();
+    })
+    .then(function (data) {
+      storeTokenResponse(data);
+      $('login-password').value = '';
+      return enterApp();
+    })
+    .catch(function () { setMsg(msg, '로그인하지 못했어요. 이메일과 비밀번호를 확인해 주세요.'); })
+    .then(function () { $('login-btn').disabled = false; });
 }
 
-// ----- 카드 추가·수정 창 -----
-let editing = null; // 고치는 중인 카드 (새 카드면 빈 객체)
-let editThumbUrl = null;
-let editFileUrl = null;
-
-function setFileLink(url) {
-  const a = $('e-file-link');
-  if (url) {
-    a.href = url;
-    a.textContent = '지금 첨부 보기';
-  } else {
-    a.removeAttribute('href');
-    a.textContent = '없음';
-  }
+function doLogout() {
+  var token = session && session.access_token;
+  saveSession(null);
+  if (token) { authRequest('logout', {}, token).catch(function () { /* 이미 로컬 정보는 지웠다 */ }); }
+  showLogin();
 }
 
-function openEditor(p) {
-  editing = p || {};
-  $('editor-title').textContent = p ? '카드 수정' : '카드 추가';
-  $('e-number').value = editing.number || '';
-  $('e-category').value = editing.category || '';
-  $('e-title').value = editing.title || '';
-  $('e-description').value = editing.description || '';
-  $('e-tags').value = (editing.tags || []).join(', ');
-  $('e-thumb-file').value = '';
-  $('e-file-file').value = '';
-  editThumbUrl = editing.thumbnail_url || null;
-  editFileUrl = editing.file_url || null;
-  setPreview($('e-thumb-preview'), editThumbUrl);
-  setFileLink(editFileUrl);
-  showMsg('editor-msg', '');
-  $('editor').hidden = false;
-  $('e-title').focus();
+function showLogin() {
+  show('app', false);
+  show('denied-card', false);
+  show('loading', false);
+  show('login-card', true);
 }
 
-function closeEditor() {
-  editing = null;
-  $('editor').hidden = true;
-}
-
-$('project-add').addEventListener('click', () => openEditor(null));
-$('e-cancel').addEventListener('click', closeEditor);
-
-$('e-thumb-file').addEventListener('change', () => {
-  const problem = checkFile($('e-thumb-file').files[0], IMAGE_TYPES);
-  if (problem) $('e-thumb-file').value = '';
-  showMsg('editor-msg', problem || '', problem ? 'error' : '');
-  previewChosen($('e-thumb-file'), $('e-thumb-preview'), editThumbUrl);
-});
-$('e-file-file').addEventListener('change', () => {
-  const problem = checkFile($('e-file-file').files[0], FILE_TYPES);
-  if (problem) $('e-file-file').value = '';
-  showMsg('editor-msg', problem || '', problem ? 'error' : '');
-});
-$('e-thumb-clear').addEventListener('click', () => {
-  editThumbUrl = null;
-  $('e-thumb-file').value = '';
-  setPreview($('e-thumb-preview'), null);
-});
-$('e-file-clear').addEventListener('click', () => {
-  editFileUrl = null;
-  $('e-file-file').value = '';
-  setFileLink(null);
-});
-
-$('e-save').addEventListener('click', async () => {
-  const title = $('e-title').value.trim();
-  if (!title) return showMsg('editor-msg', '제목을 적어 주세요.', 'error');
-
-  const saveButton = $('e-save');
-  saveButton.disabled = true;
-  showMsg('editor-msg', '저장 중…');
-  try {
-    const thumbFile = $('e-thumb-file').files[0];
-    const attachFile = $('e-file-file').files[0];
-    if (thumbFile) editThumbUrl = await uploadFile('projects', thumbFile);
-    if (attachFile) editFileUrl = await uploadFile('projects', attachFile);
-
-    const data = {
-      number: $('e-number').value.trim(),
-      category: $('e-category').value.trim(),
-      title,
-      description: $('e-description').value.trim(),
-      tags: $('e-tags').value.split(',').map((t) => t.trim()).filter(Boolean),
-      thumbnail_url: editThumbUrl,
-      file_url: editFileUrl,
-    };
-
-    if (editing.id) {
-      await dbChange('projects?id=eq.' + editing.id, 'PATCH', data);
-    } else {
-      data.sort_order = projects.reduce((max, p) => Math.max(max, p.sort_order), 0) + 1;
-      await dbChange('projects', 'POST', data);
-    }
-    closeEditor();
-    showMsg('project-msg', '저장했습니다. 방문자 화면을 새로고침하면 보입니다.', 'ok');
-    loadProjects();
-  } catch (e) {
-    showMsg('editor-msg', '저장하지 못했습니다: ' + e.message, 'error');
-  }
-  saveButton.disabled = false;
-});
-
-// ===== 방명록 =====
-async function loadGuestbook() {
-  const list = $('guest-list');
-  try {
-    const rows = await dbJson('resume_guestbook?select=*&order=created_at.desc');
-    list.textContent = '';
-    if (!rows.length) {
-      list.innerHTML = '<li class="empty">방명록 글이 없습니다.</li>';
+// ---------- 관리자 확인 후 화면 열기 ----------
+function enterApp() {
+  show('login-card', false);
+  show('loading', true);
+  return api('admins?select=user_id').then(function (rows) {
+    show('loading', false);
+    if (!rows || !rows.length) {
+      show('denied-card', true);
       return;
     }
-    rows.forEach((row) => {
-      const li = document.createElement('li');
-      li.className = 'item';
-      const main = document.createElement('div');
-      main.className = 'item-main';
-      const nick = document.createElement('strong');
-      nick.textContent = row.nickname;
-      const date = document.createElement('small');
-      date.className = 'gb-date';
-      date.textContent = new Date(row.created_at).toLocaleString('ko-KR');
-      const msg = document.createElement('p');
-      msg.textContent = row.message;
-      main.append(nick, date, msg);
-      li.append(main, button('삭제', () => deleteGuest(row), 'danger'));
-      list.append(li);
+    show('denied-card', false);
+    $('who').textContent = session.email || '';
+    show('app', true);
+    return loadAll();
+  }).catch(function (err) {
+    show('loading', false);
+    if (err && err.message === 'auth') { saveSession(null); }
+    showLogin();
+    setMsg($('login-msg'), '다시 로그인해 주세요.');
+  });
+}
+
+function loadAll() {
+  return Promise.all([loadProfile(), loadProjects(), loadGuestbook()]).catch(function () {
+    setMsg($('project-msg'), '내용을 불러오지 못했어요. 새로고침해 주세요.');
+  });
+}
+
+// ---------- 프로필 ----------
+function buildProfileForm() {
+  var box = $('profile-form');
+  box.textContent = '';
+  PROFILE_FIELDS.forEach(function (f) {
+    var label = el('label', 'field' + (f[2] === 'area' ? ' wide' : ''));
+    label.appendChild(el('span', '', f[1]));
+    var input = f[2] === 'area' ? document.createElement('textarea') : document.createElement('input');
+    if (f[2] === 'area') { input.rows = 3; } else { input.type = 'text'; }
+    label.appendChild(input);
+    box.appendChild(label);
+    profileInputs[f[0]] = input;
+  });
+}
+
+function showPhotoPreview(url) {
+  var box = $('photo-preview');
+  box.textContent = '';
+  if (url) {
+    var img = document.createElement('img');
+    img.src = url;
+    img.alt = '프로필 사진 미리보기';
+    box.appendChild(img);
+  }
+}
+
+function loadProfile() {
+  return api('profile?select=*&id=eq.1').then(function (rows) {
+    var p = rows && rows[0];
+    profileHasRow = !!p;
+    p = p || {};
+    PROFILE_FIELDS.forEach(function (f) { profileInputs[f[0]].value = p[f[0]] || ''; });
+    currentPhotoUrl = p.photo_url || null;
+    showPhotoPreview(isWebUrl(currentPhotoUrl) ? currentPhotoUrl : null);
+    $('photo-file').value = '';
+  });
+}
+
+function saveProfile() {
+  var msg = $('profile-msg');
+  var btn = $('profile-save');
+  var file = $('photo-file').files[0];
+  setMsg(msg, '');
+  if (file) {
+    var problem = checkFile(file, false);
+    if (problem) { setMsg(msg, problem); return; }
+  }
+  btn.disabled = true;
+  setMsg(msg, '저장하는 중…');
+
+  var photoStep = file ? uploadFile(file, 'profile', 'photo') : Promise.resolve(currentPhotoUrl);
+  photoStep.then(function (photoUrl) {
+    var data = { photo_url: photoUrl || null, updated_at: new Date().toISOString() };
+    PROFILE_FIELDS.forEach(function (f) { data[f[0]] = profileInputs[f[0]].value.trim(); });
+    if (profileHasRow) {
+      return api('profile?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(data) })
+        .then(function (rows) {
+          if (rows && rows.length) { return; }
+          data.id = 1;
+          return api('profile', { method: 'POST', body: JSON.stringify(data) });
+        });
+    }
+    data.id = 1;
+    return api('profile', { method: 'POST', body: JSON.stringify(data) });
+  }).then(function () {
+    setMsg(msg, '저장했어요.', true);
+    return loadProfile();
+  }).catch(function () {
+    setMsg(msg, '저장하지 못했어요. 잠시 뒤에 다시 해 주세요.');
+  }).then(function () { btn.disabled = false; });
+}
+
+// ---------- 포트폴리오 카드 ----------
+function buildProjectForm() {
+  var box = $('project-form');
+  box.textContent = '';
+  var defs = [
+    ['number', '번호 (예: 01)', 'text', false],
+    ['category', '분류', 'text', false],
+    ['title', '제목 (꼭 필요)', 'text', false],
+    ['tags', '태그 (쉼표로 나누기)', 'text', false],
+    ['description', '설명', 'area', true]
+  ];
+  defs.forEach(function (d) {
+    var label = el('label', 'field' + (d[3] ? ' wide' : ''));
+    label.appendChild(el('span', '', d[1]));
+    var input = d[2] === 'area' ? document.createElement('textarea') : document.createElement('input');
+    if (d[2] === 'area') { input.rows = 3; } else { input.type = 'text'; }
+    label.appendChild(input);
+    box.appendChild(label);
+    projectInputs[d[0]] = input;
+  });
+
+  var thumbLabel = el('label', 'field');
+  thumbLabel.appendChild(el('span', '', '썸네일 이미지 (10MB까지)'));
+  var thumb = document.createElement('input');
+  thumb.type = 'file';
+  thumb.accept = 'image/png,image/jpeg,image/webp,image/gif';
+  thumbLabel.appendChild(thumb);
+  thumbLabel.appendChild(el('small', 'current-file', ''));
+  box.appendChild(thumbLabel);
+  projectInputs.thumb = thumb;
+  projectInputs.thumbNote = thumbLabel.lastChild;
+
+  var fileLabel = el('label', 'field');
+  fileLabel.appendChild(el('span', '', '첨부 파일 (이미지나 PDF, 10MB까지)'));
+  var attach = document.createElement('input');
+  attach.type = 'file';
+  attach.accept = 'image/png,image/jpeg,image/webp,image/gif,application/pdf';
+  fileLabel.appendChild(attach);
+  fileLabel.appendChild(el('small', 'current-file', ''));
+  box.appendChild(fileLabel);
+  projectInputs.attach = attach;
+  projectInputs.attachNote = fileLabel.lastChild;
+
+  var clearThumb = el('label', 'check');
+  var ct = document.createElement('input');
+  ct.type = 'checkbox';
+  clearThumb.appendChild(ct);
+  clearThumb.appendChild(document.createTextNode(' 지금 있는 썸네일 지우기'));
+  box.appendChild(clearThumb);
+  projectInputs.clearThumb = ct;
+  projectInputs.clearThumbRow = clearThumb;
+
+  var clearFile = el('label', 'check');
+  var cf = document.createElement('input');
+  cf.type = 'checkbox';
+  clearFile.appendChild(cf);
+  clearFile.appendChild(document.createTextNode(' 지금 있는 첨부 파일 지우기'));
+  box.appendChild(clearFile);
+  projectInputs.clearFile = cf;
+  projectInputs.clearFileRow = clearFile;
+
+  resetProjectForm();
+}
+
+function resetProjectForm() {
+  editingId = null;
+  ['number', 'category', 'title', 'tags', 'description'].forEach(function (k) { projectInputs[k].value = ''; });
+  projectInputs.thumb.value = '';
+  projectInputs.attach.value = '';
+  projectInputs.clearThumb.checked = false;
+  projectInputs.clearFile.checked = false;
+  projectInputs.clearThumbRow.hidden = true;
+  projectInputs.clearFileRow.hidden = true;
+  projectInputs.thumbNote.textContent = '';
+  projectInputs.attachNote.textContent = '';
+  $('project-form-title').textContent = '카드 추가';
+  $('project-cancel').hidden = true;
+}
+
+function editProject(p) {
+  resetProjectForm();
+  editingId = p.id;
+  projectInputs.number.value = p.number || '';
+  projectInputs.category.value = p.category || '';
+  projectInputs.title.value = p.title || '';
+  projectInputs.tags.value = (p.tags || []).join(', ');
+  projectInputs.description.value = p.description || '';
+  projectInputs.thumbNote.textContent = p.thumbnail_url ? '지금 올라가 있는 썸네일이 있어요. 새 파일을 고르면 바뀌어요.' : '';
+  projectInputs.attachNote.textContent = p.file_url ? '지금 올라가 있는 첨부 파일이 있어요. 새 파일을 고르면 바뀌어요.' : '';
+  projectInputs.clearThumbRow.hidden = !p.thumbnail_url;
+  projectInputs.clearFileRow.hidden = !p.file_url;
+  $('project-form-title').textContent = '카드 수정 (' + (p.title || '') + ')';
+  $('project-cancel').hidden = false;
+  setMsg($('project-msg'), '');
+  $('project-form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function loadProjects() {
+  return Promise.all([
+    api('projects?select=*&order=sort_order.asc,id.asc'),
+    api('likes?select=project_id')
+  ]).then(function (data) {
+    projects = data[0] || [];
+    likeCounts = {};
+    (data[1] || []).forEach(function (row) {
+      likeCounts[row.project_id] = (likeCounts[row.project_id] || 0) + 1;
     });
-  } catch (e) {
-    showMsg('guest-msg', '방명록을 불러오지 못했습니다: ' + e.message, 'error');
-  }
+    renderProjectList();
+  });
 }
 
-async function deleteGuest(row) {
-  if (!confirm('"' + row.nickname + '"님의 글을 지울까요?')) return;
-  try {
-    await dbChange('resume_guestbook?id=eq.' + row.id, 'DELETE');
-    showMsg('guest-msg', '지웠습니다.', 'ok');
-  } catch (e) {
-    showMsg('guest-msg', '지우지 못했습니다: ' + e.message, 'error');
+function renderProjectList() {
+  var list = $('project-list');
+  list.textContent = '';
+  if (!projects.length) {
+    list.appendChild(el('li', 'empty-row', '아직 카드가 없어요. 아래에서 추가해 주세요.'));
+    return;
   }
-  loadGuestbook();
+  projects.forEach(function (p, i) {
+    var li = el('li', 'row');
+    var info = el('div', 'row-info');
+    info.appendChild(el('p', 'row-cat', (p.number ? p.number + '. ' : '') + (p.category || '')));
+    info.appendChild(el('p', 'row-title', p.title));
+    info.appendChild(el('p', 'row-meta', '좋아요 ' + (likeCounts[p.id] || 0) + '개'));
+    li.appendChild(info);
+
+    var actions = el('div', 'row-actions');
+    var up = button('▲ 위로', 'ghost-btn small', function () { moveProject(i, -1); });
+    up.disabled = i === 0;
+    var down = button('▼ 아래로', 'ghost-btn small', function () { moveProject(i, 1); });
+    down.disabled = i === projects.length - 1;
+    actions.appendChild(up);
+    actions.appendChild(down);
+    actions.appendChild(button('수정', 'ghost-btn small', function () { editProject(p); }));
+    actions.appendChild(button('좋아요 초기화', 'ghost-btn small', function () { resetLikes(p); }));
+    actions.appendChild(button('삭제', 'danger-btn small', function () { deleteProject(p); }));
+    li.appendChild(actions);
+    list.appendChild(li);
+  });
 }
 
-// ===== 시작 =====
-session = loadSession();
-if (session) enter();
-else showView('login');
+function moveProject(index, step) {
+  var target = index + step;
+  if (target < 0 || target >= projects.length) { return; }
+  var msg = $('project-msg');
+  var order = projects.slice();
+  var moved = order.splice(index, 1)[0];
+  order.splice(target, 0, moved);
+  setMsg(msg, '순서를 바꾸는 중…');
+  var jobs = [];
+  order.forEach(function (p, i) {
+    if (p.sort_order !== i + 1) {
+      jobs.push(api('projects?id=eq.' + p.id, { method: 'PATCH', body: JSON.stringify({ sort_order: i + 1 }) }));
+    }
+  });
+  Promise.all(jobs).then(function () {
+    setMsg(msg, '순서를 바꿨어요.', true);
+    return loadProjects();
+  }).catch(function () {
+    setMsg(msg, '순서를 바꾸지 못했어요.');
+    return loadProjects();
+  });
+}
+
+function deleteProject(p) {
+  if (!window.confirm('"' + p.title + '" 카드를 지울까요? 이 카드의 좋아요도 함께 지워져요.')) { return; }
+  var msg = $('project-msg');
+  api('projects?id=eq.' + p.id, { method: 'DELETE' }).then(function () {
+    if (editingId === p.id) { resetProjectForm(); }
+    setMsg(msg, '카드를 지웠어요.', true);
+    return loadProjects();
+  }).catch(function () { setMsg(msg, '지우지 못했어요.'); });
+}
+
+function resetLikes(p) {
+  var count = likeCounts[p.id] || 0;
+  var msg = $('project-msg');
+  if (!count) { setMsg(msg, '초기화할 좋아요가 없어요.'); return; }
+  if (!window.confirm('"' + p.title + '" 카드의 좋아요 ' + count + '개를 모두 지울까요?')) { return; }
+  api('likes?project_id=eq.' + p.id, { method: 'DELETE' }).then(function () {
+    setMsg(msg, '좋아요를 초기화했어요.', true);
+    return loadProjects();
+  }).catch(function () { setMsg(msg, '초기화하지 못했어요.'); });
+}
+
+function saveProject() {
+  var msg = $('project-msg');
+  var btn = $('project-save');
+  var title = projectInputs.title.value.trim();
+  var thumbFile = projectInputs.thumb.files[0];
+  var attachFile = projectInputs.attach.files[0];
+  setMsg(msg, '');
+  if (!title) { setMsg(msg, '제목을 입력해 주세요.'); return; }
+  if (thumbFile) {
+    var p1 = checkFile(thumbFile, false);
+    if (p1) { setMsg(msg, '썸네일: ' + p1); return; }
+  }
+  if (attachFile) {
+    var p2 = checkFile(attachFile, true);
+    if (p2) { setMsg(msg, '첨부 파일: ' + p2); return; }
+  }
+
+  var existing = null;
+  projects.forEach(function (p) { if (p.id === editingId) { existing = p; } });
+
+  btn.disabled = true;
+  setMsg(msg, '저장하는 중…');
+
+  var thumbStep = thumbFile
+    ? uploadFile(thumbFile, 'projects', 'thumb')
+    : Promise.resolve(existing && !projectInputs.clearThumb.checked ? existing.thumbnail_url : null);
+
+  thumbStep.then(function (thumbUrl) {
+    var attachStep = attachFile
+      ? uploadFile(attachFile, 'projects', 'file')
+      : Promise.resolve(existing && !projectInputs.clearFile.checked ? existing.file_url : null);
+    return attachStep.then(function (fileUrl) {
+      var data = {
+        number: projectInputs.number.value.trim(),
+        category: projectInputs.category.value.trim(),
+        title: title,
+        description: projectInputs.description.value.trim(),
+        tags: projectInputs.tags.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean),
+        thumbnail_url: thumbUrl || null,
+        file_url: fileUrl || null
+      };
+      if (existing) {
+        return api('projects?id=eq.' + existing.id, { method: 'PATCH', body: JSON.stringify(data) });
+      }
+      var max = 0;
+      projects.forEach(function (p) { if (p.sort_order > max) { max = p.sort_order; } });
+      data.sort_order = max + 1;
+      return api('projects', { method: 'POST', body: JSON.stringify(data) });
+    });
+  }).then(function () {
+    var wasEdit = !!existing;
+    resetProjectForm();
+    setMsg(msg, wasEdit ? '카드를 고쳤어요.' : '카드를 추가했어요.', true);
+    return loadProjects();
+  }).catch(function () {
+    setMsg(msg, '저장하지 못했어요. 잠시 뒤에 다시 해 주세요.');
+  }).then(function () { btn.disabled = false; });
+}
+
+// ---------- 방명록 ----------
+function loadGuestbook() {
+  return api('resume_guestbook?select=*&order=created_at.desc').then(function (rows) {
+    var list = $('gb-admin-list');
+    list.textContent = '';
+    if (!rows || !rows.length) {
+      list.appendChild(el('li', 'empty-row', '남겨진 글이 없어요.'));
+      return;
+    }
+    rows.forEach(function (entry) {
+      var li = el('li', 'row');
+      var info = el('div', 'row-info');
+      info.appendChild(el('p', 'row-title', entry.nickname));
+      info.appendChild(el('p', 'row-text', entry.message));
+      info.appendChild(el('p', 'row-meta', formatDate(entry.created_at)));
+      li.appendChild(info);
+      var actions = el('div', 'row-actions');
+      actions.appendChild(button('삭제', 'danger-btn small', function () { deleteGuest(entry); }));
+      li.appendChild(actions);
+      list.appendChild(li);
+    });
+  });
+}
+
+function deleteGuest(entry) {
+  if (!window.confirm(entry.nickname + ' 님의 글을 지울까요?')) { return; }
+  var msg = $('gb-admin-msg');
+  api('resume_guestbook?id=eq.' + entry.id, { method: 'DELETE' }).then(function () {
+    setMsg(msg, '글을 지웠어요.', true);
+    return loadGuestbook();
+  }).catch(function () { setMsg(msg, '지우지 못했어요.'); });
+}
+
+// ---------- 시작 ----------
+function start() {
+  buildProfileForm();
+  buildProjectForm();
+
+  $('login-btn').addEventListener('click', doLogin);
+  $('login-password').addEventListener('keydown', function (e) { if (e.key === 'Enter') { doLogin(); } });
+  $('logout-btn').addEventListener('click', doLogout);
+  $('denied-logout').addEventListener('click', doLogout);
+  $('profile-save').addEventListener('click', saveProfile);
+  $('project-save').addEventListener('click', saveProject);
+  $('project-cancel').addEventListener('click', function () { resetProjectForm(); setMsg($('project-msg'), ''); });
+  $('photo-file').addEventListener('change', function () {
+    var file = $('photo-file').files[0];
+    var msg = $('profile-msg');
+    setMsg(msg, '');
+    if (!file) { showPhotoPreview(isWebUrl(currentPhotoUrl) ? currentPhotoUrl : null); return; }
+    var problem = checkFile(file, false);
+    if (problem) { setMsg(msg, problem); $('photo-file').value = ''; return; }
+    showPhotoPreview(URL.createObjectURL(file));
+  });
+
+  session = loadSession();
+  if (!session) { showLogin(); return; }
+  show('loading', true);
+  ensureFresh().then(enterApp).catch(function () {
+    saveSession(null);
+    showLogin();
+  });
+}
+
+start();

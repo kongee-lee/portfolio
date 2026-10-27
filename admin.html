@@ -1,205 +1,87 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>관리자 · 포트폴리오</title>
+  <title>포트폴리오 관리자</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    /* 관리자 화면에만 쓰는 모양 (색·글꼴·카드는 style.css 것을 그대로 쓴다) */
-    .admin { max-width: 960px; }
-    .panel { display: block; padding: 36px 40px; margin-bottom: 24px; }
-    .panel .big-title { font-size: 26px; margin-bottom: 20px; }
-    .topbar {
-      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
-      margin-bottom: 24px;
-    }
-    .topbar .big-title { margin: 0; font-size: 30px; }
-    .topbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--gray); font-size: 14px; }
-
-    .field { display: grid; gap: 6px; margin-bottom: 14px; }
-    .field > span { font-size: 13px; font-weight: 700; }
-    .field input[type="text"], .field input[type="email"], .field input[type="password"], .field textarea {
-      width: 100%; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px;
-      background: #fafbfc; resize: vertical;
-    }
-    .field input:focus, .field textarea:focus { outline: 2px solid var(--blue); border-color: transparent; }
-    .field small { color: var(--gray); font-size: 12px; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-
-    .btn-line {
-      padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px;
-      background: var(--paper); font-size: 13px; font-weight: 700; cursor: pointer;
-    }
-    a.btn-line { display: inline-block; text-decoration: none; }
-    .btn-line:hover { border-color: var(--blue); color: var(--blue); }
-    .btn-line:disabled { opacity: 0.4; cursor: default; }
-    .btn-line.danger:hover { border-color: #dc2626; color: #dc2626; }
-    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-    .msg { min-height: 1.4em; margin: 10px 0 0; font-size: 14px; color: var(--gray); }
-    .msg.error { color: #dc2626; }
-    .msg.ok { color: #15803d; }
-
-    .file-box { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .preview {
-      width: 96px; height: 72px; border-radius: 10px; background: #e5e7eb; overflow: hidden;
-      display: grid; place-items: center; color: #9ca3af; font-size: 12px; flex: none;
-    }
-    .preview.tall { width: 96px; height: 120px; }
-    .preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-    .item {
-      display: flex; align-items: center; gap: 16px; padding: 14px 16px;
-      border: 1px solid var(--line); border-radius: 14px;
-    }
-    .item-main { flex: 1; min-width: 0; }
-    .item-main .card-meta { margin-bottom: 2px; }
-    .item-main strong { display: block; }
-    .item-main p { margin: 2px 0 0; color: var(--gray); font-size: 13px; white-space: pre-line; }
-    .likes-pill {
-      display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px;
-      background: #fff1f2; color: #e11d48; font-size: 13px; font-weight: 700; white-space: nowrap;
-    }
-    .editor { margin-top: 20px; padding: 24px; border: 1px solid var(--blue); border-radius: 16px; background: var(--blue-soft); }
-    .editor h3 { margin: 0 0 16px; }
-
-    @media (max-width: 700px) {
-      .panel { padding: 24px 18px; }
-      .grid2 { grid-template-columns: 1fr; }
-      .item { flex-wrap: wrap; }
-    }
-  </style>
 </head>
-<body>
-  <main class="page admin">
+<body class="admin-body">
+  <div class="page admin-page">
 
-    <!-- 로그인 화면 -->
-    <section class="sheet panel" id="login-view" hidden>
-      <h1 class="big-title">관리자 로그인</h1>
-      <label class="field"><span>이메일</span>
-        <input type="email" id="login-email" autocomplete="username">
-      </label>
-      <label class="field"><span>비밀번호</span>
-        <input type="password" id="login-password" autocomplete="current-password">
-      </label>
-      <button type="button" class="btn" id="login-btn">로그인</button>
-      <p class="msg" id="login-msg" role="status"></p>
-      <p><a href="index.html">← 방문자 화면으로</a></p>
+    <!-- 로그인 -->
+    <section class="card admin-card narrow" id="login-card" hidden>
+      <h1 class="page-title"><span class="bar"></span>관리자 로그인</h1>
+      <p class="guestbook-sub">관리자 이메일과 비밀번호를 입력해 주세요.</p>
+      <div class="form-stack">
+        <label class="field"><span>이메일</span><input type="email" id="login-email" autocomplete="username"></label>
+        <label class="field"><span>비밀번호</span><input type="password" id="login-password" autocomplete="current-password"></label>
+        <button type="button" id="login-btn" class="primary-btn tall">로그인</button>
+        <p class="form-msg" id="login-msg" role="status"></p>
+      </div>
+      <p class="back-link"><a href="index.html">← 방문자 화면으로</a></p>
     </section>
 
     <!-- 관리자가 아닐 때 -->
-    <section class="sheet panel" id="denied-view" hidden>
-      <h1 class="big-title">관리자만 쓸 수 있어요</h1>
-      <p class="intro" id="denied-email"></p>
-      <div class="row-actions">
-        <button type="button" class="btn-line" data-logout>로그아웃</button>
-        <a class="btn-line" href="index.html">방문자 화면으로</a>
+    <section class="card admin-card narrow" id="denied-card" hidden>
+      <h1 class="page-title"><span class="bar"></span>관리자만 쓸 수 있어요</h1>
+      <p class="guestbook-sub">이 계정은 관리자로 등록되어 있지 않아요.</p>
+      <div class="form-stack">
+        <button type="button" id="denied-logout" class="ghost-btn">로그아웃</button>
       </div>
     </section>
 
-    <!-- 관리자 화면 -->
-    <div id="admin-view" hidden>
+    <!-- 관리 화면 -->
+    <div id="app" hidden>
       <div class="topbar">
-        <h1 class="big-title">관리자</h1>
+        <h1 class="page-title"><span class="bar"></span>ADMIN</h1>
         <div class="topbar-right">
-          <span id="me"></span>
-          <a class="btn-line" href="index.html" target="_blank" rel="noopener">방문자 화면 보기</a>
-          <button type="button" class="btn-line" data-logout>로그아웃</button>
+          <span class="who" id="who"></span>
+          <a class="ghost-btn" href="index.html">방문자 화면</a>
+          <button type="button" id="logout-btn" class="ghost-btn">로그아웃</button>
         </div>
       </div>
 
-      <!-- 프로필 -->
-      <section class="sheet panel">
-        <h2 class="big-title">프로필</h2>
-        <div class="field">
-          <span>프로필 사진</span>
-          <div class="file-box">
-            <div class="preview tall" id="photo-preview">없음</div>
-            <input type="file" id="photo-file" accept="image/png,image/jpeg,image/webp,image/gif">
+      <section class="card admin-card">
+        <h2 class="section-title">프로필</h2>
+        <div class="profile-photo-row">
+          <div class="photo small" id="photo-preview"></div>
+          <div>
+            <label class="field"><span>프로필 사진 (이미지, 10MB까지)</span>
+              <input type="file" id="photo-file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+            <p class="hint-line">사진을 고른 뒤 아래 "프로필 저장"을 눌러야 반영돼요.</p>
           </div>
-          <small>PNG·JPG·WEBP·GIF, 10MB까지. 고른 뒤 아래 "프로필 저장"을 누르면 올라갑니다.</small>
         </div>
-        <div class="grid2">
-          <label class="field"><span>이름</span><input type="text" data-p="name"></label>
-          <label class="field"><span>직함</span><input type="text" data-p="title"></label>
-          <label class="field"><span>경력 배지</span><input type="text" data-p="career_badge"></label>
-          <label class="field"><span>위치</span><input type="text" data-p="location"></label>
-          <label class="field"><span>이메일</span><input type="text" data-p="email"></label>
-          <label class="field"><span>연락처</span><input type="text" data-p="phone"></label>
-        </div>
-        <label class="field"><span>한 줄 소개 제목</span><input type="text" data-p="headline">
-          <small>이름이 들어 있으면 방문자 화면에서 이름에 파란 밑줄이 생깁니다.</small></label>
-        <label class="field"><span>소개 글</span><textarea rows="4" data-p="intro"></textarea></label>
-        <label class="field"><span>EDUCATION</span><textarea rows="2" data-p="education"></textarea></label>
-        <label class="field"><span>SKILLS &amp; TOOLS</span><textarea rows="2" data-p="skills"></textarea></label>
-        <label class="field"><span>EXPERIENCE</span><textarea rows="2" data-p="experience"></textarea></label>
-        <label class="field"><span>맨 아래 인용</span><input type="text" data-p="quote"></label>
-        <button type="button" class="btn" id="profile-save">프로필 저장</button>
-        <p class="msg" id="profile-msg" role="status"></p>
-      </section>
-
-      <!-- 포트폴리오 카드 -->
-      <section class="sheet panel">
-        <h2 class="big-title">포트폴리오 카드</h2>
-        <ul class="list" id="project-list"><li class="empty">불러오는 중…</li></ul>
-        <p class="msg" id="project-msg" role="status"></p>
-        <button type="button" class="btn" id="project-add">+ 카드 추가</button>
-
-        <div class="editor" id="editor" hidden>
-          <h3 id="editor-title">카드 추가</h3>
-          <div class="grid2">
-            <label class="field"><span>번호</span><input type="text" id="e-number" placeholder="예: 05"></label>
-            <label class="field"><span>분류</span><input type="text" id="e-category"></label>
-          </div>
-          <label class="field"><span>제목 (꼭 적기)</span><input type="text" id="e-title"></label>
-          <label class="field"><span>설명</span><textarea rows="3" id="e-description"></textarea></label>
-          <label class="field"><span>태그</span><input type="text" id="e-tags" placeholder="쉼표로 나눠 적기: 총괄 PM, UI/UX">
-          </label>
-          <div class="field">
-            <span>썸네일 이미지</span>
-            <div class="file-box">
-              <div class="preview" id="e-thumb-preview">없음</div>
-              <input type="file" id="e-thumb-file" accept="image/png,image/jpeg,image/webp,image/gif">
-              <button type="button" class="btn-line" id="e-thumb-clear">썸네일 빼기</button>
-            </div>
-            <small>PNG·JPG·WEBP·GIF, 10MB까지</small>
-          </div>
-          <div class="field">
-            <span>첨부 파일</span>
-            <div class="file-box">
-              <a id="e-file-link" target="_blank" rel="noopener">없음</a>
-              <input type="file" id="e-file-file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf">
-              <button type="button" class="btn-line" id="e-file-clear">첨부 빼기</button>
-            </div>
-            <small>이미지 또는 PDF, 10MB까지. 방문자가 카드를 누르면 이 파일이 열립니다 (없으면 썸네일).</small>
-          </div>
-          <div class="row-actions">
-            <button type="button" class="btn" id="e-save">저장</button>
-            <button type="button" class="btn-line" id="e-cancel">취소</button>
-          </div>
-          <p class="msg" id="editor-msg" role="status"></p>
+        <div class="form-grid" id="profile-form"></div>
+        <div class="actions">
+          <button type="button" id="profile-save" class="primary-btn tall">프로필 저장</button>
+          <span class="form-msg inline" id="profile-msg" role="status"></span>
         </div>
       </section>
 
-      <!-- 좋아요 -->
-      <section class="sheet panel">
-        <h2 class="big-title">좋아요</h2>
-        <ul class="list" id="like-list"><li class="empty">불러오는 중…</li></ul>
-        <p class="msg" id="like-msg" role="status"></p>
+      <section class="card admin-card">
+        <h2 class="section-title">포트폴리오 카드</h2>
+        <ul class="row-list" id="project-list"></ul>
+
+        <h3 class="sub-title" id="project-form-title">카드 추가</h3>
+        <div class="form-grid" id="project-form"></div>
+        <div class="actions">
+          <button type="button" id="project-save" class="primary-btn tall">카드 저장</button>
+          <button type="button" id="project-cancel" class="ghost-btn" hidden>수정 취소</button>
+          <span class="form-msg inline" id="project-msg" role="status"></span>
+        </div>
       </section>
 
-      <!-- 방명록 -->
-      <section class="sheet panel">
-        <h2 class="big-title">방명록</h2>
-        <ul class="list" id="guest-list"><li class="empty">불러오는 중…</li></ul>
-        <p class="msg" id="guest-msg" role="status"></p>
+      <section class="card admin-card">
+        <h2 class="section-title">방명록</h2>
+        <ul class="row-list" id="gb-admin-list"></ul>
+        <p class="form-msg" id="gb-admin-msg" role="status"></p>
       </section>
     </div>
-  </main>
 
+    <p class="loading-note" id="loading" hidden>불러오는 중…</p>
+  </div>
   <script src="admin.js"></script>
 </body>
 </html>
