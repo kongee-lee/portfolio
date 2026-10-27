@@ -445,7 +445,3 @@ button { font-family: inherit; cursor: pointer; }
   .row { flex-direction: column; align-items: stretch; }
   .row-actions { justify-content: flex-start; }
 }
-
-/* 지우기 시험 (잠깐 쓰는 버튼) */
-.delete-test { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); }
-.delete-test-result { white-space: pre-wrap; word-break: break-all; color: var(--text); }
