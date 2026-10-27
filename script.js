@@ -326,9 +326,53 @@ function setupGuestForm() {
   });
 }
 
+// ---------- 지우기 시험 (잠깐 쓰는 기능) ----------
+// 공개 키로 방명록 맨 위 글을 지워 보고, Supabase가 돌려준 결과를 그대로 보여 준다.
+function setupDeleteTest() {
+  var btn = document.getElementById('gb-delete-test');
+  var out = document.getElementById('gb-delete-test-result');
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    out.textContent = '시험 중...';
+
+    getJson('resume_guestbook?select=id,nickname,message&order=created_at.desc&limit=1')
+      .then(function (rows) {
+        if (!rows[0]) { throw new Error('방명록에 글이 없어서 시험할 수 없어요.'); }
+        var top = rows[0];
+        return api('resume_guestbook?id=eq.' + top.id, {
+          method: 'DELETE',
+          headers: { Prefer: 'return=representation' }
+        }).then(function (res) {
+          return res.text().then(function (body) {
+            var lines = ['대상: 맨 위 글 id ' + top.id + ' (' + top.nickname + ': ' + top.message + ')',
+                         'DELETE ' + SUPABASE_URL + '/rest/v1/resume_guestbook?id=eq.' + top.id,
+                         '응답 상태: ' + res.status + ' ' + res.statusText];
+            if (res.ok) {
+              var deleted = [];
+              try { deleted = JSON.parse(body || '[]'); } catch (e) { /* 그대로 둔다 */ }
+              lines.unshift('결과: 성공 (요청이 거절되지 않음)');
+              lines.push('지워진 줄 수: ' + deleted.length);
+            } else {
+              lines.unshift('결과: 실패');
+              lines.push('지워진 줄 수: 0');
+            }
+            lines.push('Supabase가 돌려준 내용: ' + (body || '(비어 있음)'));
+            out.textContent = lines.join('\n');
+          });
+        });
+      })
+      .catch(function (err) {
+        out.textContent = '결과: 실패\n실패 이유: ' + err.message;
+      })
+      .then(function () { btn.disabled = false; });
+  });
+}
+
 // ---------- 시작 ----------
 function start() {
   setupGuestForm();
+  setupDeleteTest();
 
   Promise.all([
     getJson('profile?select=*&id=eq.1'),
