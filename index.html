@@ -2,75 +2,27 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>포트폴리오</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부산 명소 지도</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="page">
+  <header class="top">
+    <h1>부산 명소 지도</h1>
+    <p>핀을 누르면 장소 이름과 위도·경도가 보여요.</p>
+  </header>
 
-    <section class="card main-card">
-      <aside class="about" id="about">
-        <p class="about-label">ABOUT ME</p>
-        <div class="photo" id="photo"></div>
-        <h2 class="name" id="name"></h2>
-        <p class="title" id="title"></p>
-        <p class="badge-wrap"><span class="badge" id="badge"></span></p>
-        <ul class="contacts" id="contacts"></ul>
-      </aside>
+  <main class="map-wrap">
+    <div id="map" aria-label="부산 지도"></div>
+  </main>
 
-      <main class="portfolio">
-        <h1 class="page-title"><span class="bar"></span>PORTFOLIO</h1>
-        <p class="headline" id="headline"></p>
-        <p class="intro" id="intro"></p>
-        <hr class="divider">
+  <footer class="bottom">
+    <p>등록된 명소 <strong id="place-count">0</strong>곳 · 지도: OpenStreetMap</p>
+  </footer>
 
-        <div class="info-grid">
-          <section>
-            <h3 class="info-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 1 9l11 6 9-4.9V17h2V9L12 3zm-6 9.2v4L12 20l6-3.8v-4L12 15.5 6 12.2z"/></svg>EDUCATION</h3>
-            <div class="info-body" id="education"></div>
-          </section>
-          <section>
-            <h3 class="info-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.7 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2z"/></svg>SKILLS &amp; TOOLS</h3>
-            <div class="info-body" id="skills"></div>
-          </section>
-          <section>
-            <h3 class="info-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4a2 2 0 0 1 2 2v1h4a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h4V5a2 2 0 0 1 2-2zm0 2v1h4V5h-4zM2 14h8v2h4v-2h8v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5z"/></svg>EXPERIENCE</h3>
-            <div class="info-body" id="experience"></div>
-          </section>
-        </div>
-
-        <section class="highlights">
-          <div class="highlights-head">
-            <h3>PORTFOLIO HIGHLIGHTS</h3>
-            <span class="hint">(카드를 터치하면 상세 기획서를 보실 수 있습니다)</span>
-          </div>
-          <div class="project-grid" id="projects"><p class="status">불러오는 중…</p></div>
-        </section>
-
-        <p class="quote" id="quote"></p>
-      </main>
-    </section>
-
-    <section class="card guestbook">
-      <div class="guestbook-inner">
-        <h2 class="guestbook-title"><span class="bar"></span>GUESTBOOK</h2>
-        <p class="guestbook-sub">방문해 주셔서 감사합니다. 별명과 한마디를 남겨 주세요.</p>
-
-        <div class="guest-form">
-          <input type="text" id="gb-nickname" maxlength="20" placeholder="별명 (20자까지)" aria-label="별명">
-          <input type="text" id="gb-message" maxlength="200" placeholder="한마디 (200자까지)" aria-label="한마디">
-          <button type="button" id="gb-submit" class="primary-btn">남기기</button>
-        </div>
-        <p class="form-msg" id="gb-msg" role="status"></p>
-
-        <ul class="guest-list" id="gb-list"></ul>
-      </div>
-    </section>
-
-    <p class="admin-link"><a href="admin.html">관리자</a></p>
-
-  </div>
-  <script src="script.js"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="places.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
